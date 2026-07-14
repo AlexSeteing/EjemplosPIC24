@@ -1,0 +1,7 @@
+# Ignorar carpetas de compilación en todos los subproyectos
+**/build/
+**/dist/
+**/.ext/
+
+# Ignorar configuraciones locales de máquina en todos los subproyectos
+**/nbproject/private/
