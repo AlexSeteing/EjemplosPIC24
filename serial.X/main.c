@@ -7,7 +7,7 @@
 // CONFIGURACIÓN CORREGIDA DEL RELOJ (FRC CON PLL CORRIENDO A 32 MHz)
 // =============================================================================
 #pragma config POSCMD = NONE     // Oscilador primario deshabilitado
-#pragma config FNOSC = FRCPLL    // ¡CORREGIDO!: Activa el FRC con multiplicador PLL
+#pragma config FNOSC = FRCPLL    // Activa el FRC con multiplicador PLL
 #pragma config OSCIOFCN = OFF   // CLKO habilitado
 #pragma config FCKSM = CSDCMD    // Cambio de reloj desactivado
 #pragma config SOSCSEL = 0       // SOSC en OFF deshabilitado
@@ -61,8 +61,8 @@ int main(void)
     while(1) {
         Check_UART1_Errors(); 
         
-        //DACAI_Send_Instruction(); 
-        DACAI_Send_Text("hola\0"); 
+        DACAI_Send_Instruction(); 
+        //DACAI_Send_Text("hola\0"); 
         __delay_ms(1000); 
     }
     return 0;
