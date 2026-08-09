@@ -1,172 +1,263 @@
-#define NUM_MUESTRAS 16     // Tamaño del filtro promedio móvi
+#ifndef ADC_H
+#define ADC_H
+
+#include <xc.h>
+#include <stdint.h>
+#include "pantalla.h" // Necesario para la función DACAI_Set_Text
+
+// =============================================================================
+// DEFINICIONES Y UMBRALES DE CONTROL
+// =============================================================================
+#define NUM_MUESTRAS            16    // Tamaño del filtro promedio móvil
 #define ADC_MAX_CALIBRADO_MPX   4095
-#define PRESION_CONSIGNA_PSI     24000  // 24.000 psi
-#define HISTERESIS_PSI           500    // 0.500 psi (Evita el golpeteo del contactor)
+#define PRESION_CONSIGNA_PSI    24    // 24.000 psi
+#define HISTERESIS_PSI          3     // Histeresis de control
 
-#define UMBRAL_APAGADO_PSI       (PRESION_CONSIGNA_PSI + HISTERESIS_PSI) // 24500 (24.5 psi)
-#define UMBRAL_ENCENDIDO_PSI     (PRESION_CONSIGNA_PSI - HISTERESIS_PSI) // 23500 (23.5 psi)
+#define UMBRAL_APAGADO_PSI      (PRESION_CONSIGNA_PSI + HISTERESIS_PSI) // 27 PSI
+#define UMBRAL_ENCENDIDO_PSI    (PRESION_CONSIGNA_PSI - HISTERESIS_PSI) // 21 PSI
+#define PRESION_MINIMA_INICIO_PSI 24
 
-// Estructura para el filtrado digital
+// =============================================================================
+// ESTRUCTURAS Y VARIABLES GLOBALES
+// =============================================================================
 typedef struct {
     uint16_t historial[NUM_MUESTRAS];
     uint8_t indice;
     uint32_t suma;
 } Sensor_Filter_t;
 
-// Variables Globales Volátiles (ISR/Main Compartido)
+extern volatile int16_t  sensorCamara;
+extern volatile int16_t  sensorCamisa;
+extern volatile uint16_t sensorTemperatura;
+extern volatile uint16_t sensorExtra;
+
+extern volatile uint8_t pagina_actual;
+extern volatile uint8_t solicitar_id_pantalla;
+extern volatile uint8_t sensorNivelAguaOK;
+extern volatile uint8_t sensorCamisaOK;
+
+// Variables locales de filtrado e interrupción
 volatile Sensor_Filter_t f_tempCamara, f_presCamara, f_presCamisa, f_sensorExtra;
-volatile uint8_t bandera100ms = 0; // Bandera de tiempo controlada por hardware
 
+volatile uint8_t bandera100ms = 0;
+volatile uint8_t bandera1seg = 0;
+static uint8_t contador_100ms = 0;
+
+
+// =============================================================================
+// PROTOTIPOS DE FUNCIONES
+// =============================================================================
 void ADC_Init(void);
+uint16_t ADC_Read_Channel(uint8_t canal);
+uint16_t Filtrar_Sensor(volatile Sensor_Filter_t *f, uint16_t nueva_lectura);
+void Leer_Sensores(void);
+void Controlar_Presion_Camisa(void);
+void Timer2_Init(void);
 
-void __attribute__((__interrupt__, __auto_psv__)) _T2Interrupt(void) {
-    bandera100ms = 1;       // Levanta la bandera para procesar en el while(1)
-    IFS0bits.T2IF = 0;      // Limpia la bandera de interrupción de hardware
-    solicitar_id_pantalla == 1;
+// =============================================================================
+// INTERRUPCIÓN DE TIMER 2 (Temporización Base)
+// =============================================================================
+void __attribute__((interrupt, no_auto_psv)) _T2Interrupt(void)
+{
+    IFS0bits.T2IF = 0; // Limpiar bandera de interrupción de Timer2
+
+    bandera100ms = 1;  // Tu bandera actual de 100ms
+
+    // --- GENERACIÓN DE BASE DE TIEMPO DE 1 SEGUNDO ---
+    contador_100ms++;
+    if (contador_100ms >= 10) 
+    {
+        contador_100ms = 0;
+        bandera1seg = 1; // Flag de 1 segundo listo
+    }
 }
 
+// =============================================================================
+// IMPLEMENTACIONES DE FUNCIONES ADC Y TEMPORIZADOR
+// =============================================================================
 void ADC_Init(void) 
 {
-    //Configurar pines de entrada
-    //Sensor 1 Pin 22 RB3
-    //Sensor 2 Pin 23 RB2
-    //Sensor 3 Pin 24 RB1
-    //Sensor 4 Pin 25 RB0
+    // Configurar pines de entrada analógica AN0, AN1, AN2, AN3
     ANSBbits.ANSB0 = 1; 
     ANSBbits.ANSB1 = 1; 
     ANSBbits.ANSB2 = 1;
     ANSBbits.ANSB3 = 1;
     
-    TRISBbits.TRISB0= 1;
-    TRISBbits.TRISB1= 1;
-    TRISBbits.TRISB2= 1;
-    TRISBbits.TRISB3= 1;
+    TRISBbits.TRISB0 = 1;
+    TRISBbits.TRISB1 = 1;
+    TRISBbits.TRISB2 = 1;
+    TRISBbits.TRISB3 = 1;
     
-    // Configuración del ADC
+    // Configuración del módulo ADC1 en 12-bits
     AD1CON1 = 0x0000;  
-    AD1CON1bits.MODE12 = 1;
-    AD1CON1bits.FORM = 0;   // Formato entero absoluto derecho
-    
-    // SSRC = 7 (111): El temporizador interno del ADC termina de manera automática el 
-    // tiempo de muestreo (Sample) y arranca la conversión de forma autónoma y precisa.
-    AD1CON1bits.SSRC = 7; 
+    AD1CON1bits.MODE12 = 1; // Modo 12-bits (0 a 4095)
+    AD1CON1bits.FORM = 0;   // Formato entero absoluto
+    AD1CON1bits.SSRC = 7;   // Auto-conversión por timer interno
  
-    AD1CON2 = 0x0000;       // Referencias estándar: VREF+ = AVDD (3.3V), VREF- = AVSS (GND)
-    AD1CON3bits.ADRC = 0;   // Usar el reloj de instrucciones del sistem
+    AD1CON2 = 0x0000;       // VREF+ = AVDD, VREF- = AVSS
+    AD1CON3bits.ADRC = 0;   // Reloj de conversión proveniente de FCY
     
-    // SAMC = 31: Configuramos el máximo tiempo de muestreo automático (31 * TAD).
-    // Esto le da al circuito un tiempo sumamente generoso y robusto para cargar el capacitor interno.
-    AD1CON3bits.SAMC = 31;
+    AD1CON3bits.SAMC = 31;  // Máximo tiempo de muestreo (31 TAD)
     AD1CON3bits.ADCS = 7;   
     
-    AD1CSSL = 0x0000;       // Desactivamos el escaneo automático (lo haremos por software para control total)
-    AD1CON1bits.ADON = 1;   // ¡Encender el módulo ADC de forma global
+    AD1CSSL = 0x0000;       // Desactivar escaneo automático
+    AD1CON1bits.ADON = 1;   // Encender ADC globalmente
 }
 
 uint16_t ADC_Read_Channel(uint8_t canal) 
 {
-    AD1CHS = canal;             // Selecciona el canal analógico a muestrear (AN0, AN1, AN2 o AN3)
-    AD1CON1bits.SAMP = 1;       // Inicia el tiempo de muestreo automático
-    while (!AD1CON1bits.DONE);  // El hardware borra DONE cuando la conversión de 12 bits finaliza
-    return ADC1BUF0;             // Retorna el resultado del buffer   
+    AD1CHS = canal;             // Selecciona canal (AN0 - AN3)
+    AD1CON1bits.SAMP = 1;       // Inicia muestreo
+    while (!AD1CON1bits.DONE);  // Espera finalización de conversión
+    return ADC1BUF0;            
 }
 
 uint16_t Filtrar_Sensor(volatile Sensor_Filter_t *f, uint16_t nueva_lectura) 
 {
-    // 1. Restar la muestra más antigua que va a ser reemplazada de la suma total
     f->suma -= f->historial[f->indice];
-    
-    // 2. Almacenar la nueva lectura en la posición actual del búfer
     f->historial[f->indice] = nueva_lectura;
-    
-    // 3. Sumar el nuevo valor al total acumulado
     f->suma += nueva_lectura;
-    
-    // 4. Avanzar el índice del buffer circular de forma segura (0 a 15)
     f->indice = (f->indice + 1) % NUM_MUESTRAS;
     
-    // 5. Retornar el promedio matemático
     return (uint16_t)(f->suma / NUM_MUESTRAS);
 }
 
 void Leer_Sensores(void) 
 {
-    // --- 1. LECTURA CRUDAS DEL ADC ---
-    uint16_t adc_presCamara = ADC_Read_Channel(3); // AN3
-    uint16_t adc_presCamisa = ADC_Read_Channel(2); // AN2
-    uint16_t adc_tempCamara = ADC_Read_Channel(1); // AN1
+    // 1. Lecturas analógicas crudas
+    uint16_t adc_presCamara  = ADC_Read_Channel(3); // AN3
+    uint16_t adc_presCamisa  = ADC_Read_Channel(2); // AN2
+    uint16_t adc_tempCamara  = ADC_Read_Channel(1); // AN1
     uint16_t adc_sensorExtra = ADC_Read_Channel(0); // AN0
     
-    // --- 2. FILTRADO DIGITAL (16 MUESTRAS) ---
-    uint16_t filtrado_presCamara = Filtrar_Sensor(&f_presCamara, adc_presCamara);
-    uint16_t filtrado_presCamisa = Filtrar_Sensor(&f_presCamisa, adc_presCamisa);
-    uint16_t filtrado_tempCamara = Filtrar_Sensor(&f_tempCamara, adc_tempCamara);
+    // 2. Filtrado con promedio móvil
+    uint16_t filtrado_presCamara  = Filtrar_Sensor(&f_presCamara, adc_presCamara);
+    uint16_t filtrado_presCamisa  = Filtrar_Sensor(&f_presCamisa, adc_presCamisa);
+    uint16_t filtrado_tempCamara  = Filtrar_Sensor(&f_tempCamara, adc_tempCamara);
     uint16_t filtrado_sensorExtra = Filtrar_Sensor(&f_sensorExtra, adc_sensorExtra);
     
-    // --- 3. APLICACIÓN DE ECUACIONES FÍSICAS EN PSI (16 BITS) ---
-    
-    // Presión Cámara: Convertido a PSI * 1000 (Ej: 24150 = 24.15 psi)
-    sensorCamara = (uint16_t)(((uint32_t)filtrado_presCamara * 29000) / ADC_MAX_CALIBRADO_MPX);
-    
-    // Presión Camisa: Convertido a PSI * 1000
-    sensorCamisa = (uint16_t)(((uint32_t)filtrado_presCamisa * 29000) / ADC_MAX_CALIBRADO_MPX);
-    
-    // Temperatura Cámara (Mantiene Celsius * 10. Ej: 1215 = 121.5 °C)
-    sensorTemperatura = (uint16_t)(((uint32_t)filtrado_tempCamara * 3300) / 4095);
-    
-    sensorExtra = filtrado_sensorExtra; 
+    // 3. Conversión de ingeniería (Mantiene el rango real positivo y negativo)
+    sensorCamara      = (int16_t)(((int32_t)filtrado_presCamara * 321) / 10000 - 54);
+    sensorCamisa      = (int16_t)(((int32_t)filtrado_presCamisa * 321) / 10000 - 54);
+    sensorTemperatura = (int16_t)((((int32_t)filtrado_tempCamara * 330) - 204750) / 4095);
+    sensorExtra       = filtrado_sensorExtra; 
 }
 
 void Controlar_Presion_Camisa(void) 
 {
-    
-    // REGLA DE SEGURIDAD ABSOLUTA:
-    // Si el nivel bajo NO detecta agua (SENSOR_NIVEL_BAJO == 0),
-    // apagamos las resistencias INMEDIATAMENTE por hardware, sin importar la presión.
+    static uint8_t listo_mostrado = 0;
+
+    // --- 1. SEGURIDAD: NIVEL DE AGUA ---
     if (NIVEL_BAJO == 0) {
-        RESISTENCIAS = 0; // Corta el MOC3020 -> Apaga contactor
+        RESISTENCIAS = 0; 
         DACAI_Set_Text(pagina_actual, 42, " ");
-        
-        // Opcional: Aquí podrías activar una alerta UART a la Dacai
-        // DACAI_Set_Text(1, ERR_ID, "ERROR: Falta Agua");
-        return; // Salimos de la función de inmediato para bloquear el resto de la lógica
+        sensorCamisaOK = 0;
+        listo_mostrado = 0;
+        return; 
     }
-    
-    // --- LÓGICA DE CONTROL DE PRESIÓN (Solo se ejecuta si hay agua suficiente) ---
-    
-    // Condición 1: Si la presión cae por debajo del umbral Y hay agua encima del nivel bajo
-    if (sensorCamisa <= UMBRAL_ENCENDIDO_PSI && NIVEL_BAJO == 1) {
-        RESISTENCIAS = 1; // Activa contactor (Enciende resistencias)
-        DACAI_Set_Text(pagina_actual, 42, "Calentando...");
-    }
-    
-    // Condición 2: Si la presión alcanza o supera el límite máximo
-    else if (sensorCamisa >= UMBRAL_APAGADO_PSI) 
+
+    // --- 2. DETERMINACIÓN DE UMBRALES (INICIO A 24 PSI / 32 PSI) ---
+    uint16_t presion_minima_inicio; // La presión que EXIGE el sistema para iniciar
+    uint16_t umbral_encendido;      // Dónde vuelve a encender la resistencia
+    uint16_t umbral_apagado;        // Dónde apaga la resistencia
+
+    if (autoclave.parametros_activos.temp_objetivo >= 132) 
     {
-        RESISTENCIAS = 0; // Corta contactor (Apaga resistencias)
+        // Ciclo 132°C
+        presion_minima_inicio = 32; // Exige 32 PSI exactos para habilitar
+        umbral_encendido      = 32; // Enciende si cae de 32 PSI
+        umbral_apagado        = 34; // Apaga al subir a 34 PSI (Histéresis +2 PSI)
+    } 
+    else 
+    {
+        // Ciclo 121°C / Estándar
+        presion_minima_inicio = 24; // Exige 24 PSI exactos para habilitar
+        umbral_encendido      = 24; // Enciende si cae de 24 PSI
+        umbral_apagado        = 26; // Apaga al subir a 26 PSI (Histéresis +2 PSI)
+    }
+
+    // --- 3. ALERTA DE PRESIÓN CRÍTICA BAJA (< 15 PSI) ---
+    if (sensorCamisa < 15) {
+        DACAI_Set_Text(pagina_actual, 42, "Baja Presion!");
+        listo_mostrado = 0;
+    }
+
+    // --- 4. HISTÉRESIS Y MENSAJES DE PANTALLA ---
+
+    // A. Llegó o superó la meta superior (ej. 26 PSI o 34 PSI)
+    if (sensorCamisa >= umbral_apagado) 
+    {
+        RESISTENCIAS = 0; 
+        sensorCamisaOK = 1;
+
+        if (listo_mostrado == 0) {
+            DACAI_Set_Text(pagina_actual, 42, "Listo");
+            listo_mostrado = 1; 
+        } else if (listo_mostrado == 1) {
+            DACAI_Set_Text(pagina_actual, 42, "Listo");
+            listo_mostrado = 2; // Mensaje borrado
+        }
+    }
+    // B. Cae por debajo o igual a la presión mínima requerida (ej. <= 24 PSI)
+    else if (sensorCamisa <= umbral_encendido) 
+    {
+        RESISTENCIAS = 1; 
+
+        if (sensorCamisa < presion_minima_inicio) {
+            sensorCamisaOK = 0; // Aún no llega a 24 PSI
+            
+            if (sensorCamisa >= 15) {
+                DACAI_Set_Text(pagina_actual, 42, "Calentando...");
+            }
+            listo_mostrado = 0; 
+        } 
+        else {
+            // Caso frontera: Está en exactamente 24 PSI
+            sensorCamisaOK = 1; 
+        }
+    }
+    // C. Zona intermedia (ej. entre 24 y 26 PSI)
+    else 
+    {
+        sensorCamisaOK = 1; // Ya superó los 24 PSI mínimos, es seguro operar
+
+        if (listo_mostrado == 1) {
+            listo_mostrado = 2;
+        }
+    }
+    
+    if(autoclave.flag_iniciar == 1)
+    {
         DACAI_Set_Text(pagina_actual, 42, " ");
     }
+    
 }
-
-
 
 void Timer2_Init(void) 
 {
-    T2CON = 0x0000;       // Detiene el Timer 2 y limpia la configuración
+    T2CON = 0x0000;       // Detiene Timer 2
     T2CONbits.TCKPS = 3;  // Prescaler 1:256
     
-    // Cálculo del período (PR2) para 100 ms exactos:
-    // PR2 = (Tiempo deseado * Fcy) / Prescaler
+    // Configuración para 100 ms exactos (Fcy = 16 MHz):
     // PR2 = (0.100s * 16,000,000) / 256 = 6250
-    //PR2 = 6250;    //Para 100ms
-    //PR2 = 31250;  //Para 500ms
-    PR2 = 62500;  //Para 1 s
+    PR2 = 6250; 
     
     TMR2 = 0x0000;        
     
-    IPC1bits.T2IP = 4; 
-    IFS0bits.T2IF = 0; 
-    IEC0bits.T2IE = 1; // Controla T3
-    T2CONbits.TON = 1;
-    
+    IPC1bits.T2IP = 4;    // Prioridad 4
+    IFS0bits.T2IF = 0;    // Limpiar bandera
+    IEC0bits.T2IE = 1;    // Habilitar interrupción de Timer 2
+    T2CONbits.TON = 1;    // Encender Timer 2
 }
+
+void Precargar_Filtros_Iniciales(void) {
+    uint8_t i;
+    
+    // Realiza 16 lecturas inmediatas al arrancar para llenar el buffer del filtro
+    for (i = 0; i < 16; i++) {
+        Leer_Sensores();
+        __delay_ms(5); // Da tiempo al ADC para estabilizar lecturas
+    }
+}
+
+#endif // ADC_H

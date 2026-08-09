@@ -2,7 +2,7 @@
 #define	OLED_SSD1306_H
 
 #include <xc.h>
-
+#include <stdio.h>
 // Definición de frecuencia para tiempos de la librería (8 MHz / 2)
 //#define FCY 4000000UL
 
@@ -24,5 +24,6 @@ void OLED_Set_Cursor(unsigned char pagina, unsigned char columna);
 void OLED_Print_Char(char c);
 void OLED_Print_String(const char* str);
 void OLED_Config(void);
+void OLED_Mostrar_Parametros_Activos(void);
 
 #endif	/* OLED_SSD1306_H */

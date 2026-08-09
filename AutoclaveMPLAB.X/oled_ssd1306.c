@@ -1,4 +1,5 @@
 #include "oled_ssd1306.h"
+#include "ciclos.h"
 
 // Diccionario tipográfico básico (5 columnas de ancho x 8 píxeles de alto)
 // Indexado de forma simple para caracteres comunes. Puedes expandirlo después.
@@ -215,4 +216,40 @@ void OLED_Config(void)
     // Fila inferior (Página 5), Iniciando en columna 30
     OLED_Set_Cursor(5, 30);
     OLED_Print_String("OLED");
+}
+
+void OLED_Mostrar_Parametros_Activos(void) 
+{
+    char buf_temp[16];
+    char buf_prevacios[16];
+    char buf_esterilizado[16];
+    char buf_secado[16];
+
+    // 1. Formateamos cada dato de la estructura activa
+    // Convertimos tiempos de segundos a minutos para mejor lectura
+    uint16_t min_est = autoclave.parametros_activos.tiempo_esterilizado / 60;
+    uint16_t min_sec = autoclave.parametros_activos.tiempo_secado / 60;
+
+    sprintf(buf_temp,        "Temp Obj:  %u C", (unsigned int)autoclave.parametros_activos.temp_objetivo);
+    sprintf(buf_prevacios,   "Prevacios: %u",   (unsigned int)autoclave.parametros_activos.num_prevacios);
+    sprintf(buf_esterilizado,"Esteril:  %u min", (unsigned int)min_est);
+    sprintf(buf_secado,      "Secado:   %u min", (unsigned int)min_sec);
+
+    // 2. Limpiamos pantalla y escribimos línea por línea
+    OLED_Clear_To_Black();
+
+    OLED_Set_Cursor(1, 0);
+    OLED_Print_String("--- PARAMETROS ---");
+
+    OLED_Set_Cursor(3, 0);
+    OLED_Print_String(buf_temp);
+
+    OLED_Set_Cursor(4, 0);
+    OLED_Print_String(buf_prevacios);
+
+    OLED_Set_Cursor(5, 0);
+    OLED_Print_String(buf_esterilizado);
+
+    OLED_Set_Cursor(6, 0);
+    OLED_Print_String(buf_secado);
 }

@@ -9,6 +9,8 @@
       <itemPath>adc.h</itemPath>
       <itemPath>oled_ssd1306.h</itemPath>
       <itemPath>pantalla.h</itemPath>
+      <itemPath>ciclos.h</itemPath>
+      <itemPath>impresora.h</itemPath>
     </logicalFolder>
     <logicalFolder name="ExternalFiles"
                    displayName="Important Files"
@@ -24,6 +26,8 @@
                    projectFiles="true">
       <itemPath>main.c</itemPath>
       <itemPath>oled_ssd1306.c</itemPath>
+      <itemPath>ciclos.c</itemPath>
+      <itemPath>config.c</itemPath>
     </logicalFolder>
   </logicalFolder>
   <projectmakefile>Makefile</projectmakefile>

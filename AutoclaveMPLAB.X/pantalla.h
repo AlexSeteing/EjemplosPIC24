@@ -1,112 +1,226 @@
-void DACAI_Show_Screen(uint16_t screen_id) 
-{
-    // Aseguramos que no existan errores previos en el módulo antes de transmitir
-    Check_UART1_Errors(); 
-    
-    UART1_Write(0xEE);  // Byte de inicio de trama (Frame Header)
-    UART1_Write(0xB1);  // Código de comando (Control de Pantalla)
-    UART1_Write(0x00);  // Subcomando / Parámetro fijo
-    
-    // Descomponemos el ID de 16 bits en dos bytes independientes
-    UART1_Write((uint8_t)(screen_id >> 8));   // Byte Alto del ID de la pantalla
-    UART1_Write((uint8_t)(screen_id & 0xFF));  // Byte Bajo del ID de la pantalla
-    
-    UART1_Write(0xFF);  // Inicio de fin de trama (Frame Tail)
-    UART1_Write(0xFC);  
-    UART1_Write(0xFF);  
-    UART1_Write(0xFF);  // Fin de la instrucción
+#ifndef PANTALLA_H
+#define PANTALLA_H
+
+#include <stdint.h>
+#include "xc.h"
+
+#ifndef FCY
+#define FCY 16000000UL 
+#endif
+
+#include <stdio.h>
+#include <libpic30.h>
+
+// ==========================================
+// ESTRUCTURA Y VARIABLES DEL RTC
+// ==========================================
+
+typedef struct {
+    uint16_t anio;
+    uint16_t mes;
+    uint16_t dia;
+    uint16_t hora;
+    uint16_t min;
+    uint16_t sec;
+} RTC_Dacai_t;
+
+extern volatile uint8_t pagina_actual;
+
+// Variable global extern (definida en main.c)
+extern volatile RTC_Dacai_t fecha_hora_actual;
+
+extern volatile RTC_Dacai_t fecha_hora_encendido;
+extern volatile uint8_t flag_encendido_registrado;
+
+// Prototipos necesarios declarados en otros módulos (.c / .h)
+void Check_UART1_Errors(void);
+void UART1_Write(char TxByte);
+
+// ==========================================
+// FUNCIONES INLINE PARA PANTALLA DACAI
+// ==========================================
+
+static inline uint8_t BCD_To_Int(uint8_t bcd_val) {
+    return ((bcd_val >> 4) * 10) + (bcd_val & 0x0F);
 }
 
-void DACAI_Buzzer(void) 
-{
-    // Aseguramos que no existan errores previos en el módulo antes de transmitir
-    Check_UART1_Errors(); 
+static inline void DACAI_Request_RTC(void) {
+    Check_UART1_Errors();
     
-    UART1_Write(0xEE);  // Byte de inicio de trama (Frame Header)
-    UART1_Write(0x61);  // Código de comando
-    UART1_Write(0x0A);  // Parámetro / Datos
-    UART1_Write(0xFF);  // Inicio de fin de trama (Frame Tail)
-    UART1_Write(0xFC);  
-    UART1_Write(0xFF);  
-    UART1_Write(0xFF);  // Fin de la instrucción
+    UART1_Write(0xEE);  // Header
+    UART1_Write(0x82);  // Comando para solicitar RTC
+    
+    // Tail
+    UART1_Write(0xFF);
+    UART1_Write(0xFC);
+    UART1_Write(0xFF);
+    UART1_Write(0xFF);
 }
 
-void DACAI_Set_Slider_Value(uint16_t screen_id, uint16_t control_id, uint32_t value) 
+static inline void DACAI_Show_Screen(uint16_t screen_id) 
 {
-    // Aseguramos que no existan errores previos en el módulo antes de transmitir
     Check_UART1_Errors(); 
     
-    UART1_Write(0xEE);  // Byte de inicio de trama (Frame Header)
-    UART1_Write(0xB1);  // Código de comando base
-    UART1_Write(0x10);  // Subcomando: Escribir valor en componente (Set Value)
+    UART1_Write(0xEE);  
+    UART1_Write(0xB1);  
+    UART1_Write(0x00);  
     
-    // Descomponemos el Screen ID (16 bits) en 2 bytes
-    UART1_Write((uint8_t)(screen_id >> 8));   // Screen ID High Byte
-    UART1_Write((uint8_t)(screen_id & 0xFF));  // Screen ID Low Byte
+    UART1_Write((uint8_t)(screen_id >> 8));   
+    UART1_Write((uint8_t)(screen_id & 0xFF));  
     
-    // Descomponemos el Control ID (16 bits) en 2 bytes
-    UART1_Write((uint8_t)(control_id >> 8));  // Control ID High Byte
-    UART1_Write((uint8_t)(control_id & 0xFF)); // Control ID Low Byte
-    
-    // Descomponemos el Valor (32 bits) en 4 bytes de forma consecutiva (Big-Endian)
-    UART1_Write((uint8_t)(value >> 24)); // Byte 3 (Más significativo)
-    UART1_Write((uint8_t)(value >> 16)); // Byte 2
-    UART1_Write((uint8_t)(value >> 8));  // Byte 1
-    UART1_Write((uint8_t)(value & 0xFF)); // Byte 0 (Menos significativo)
-    
-    UART1_Write(0xFF);  // Inicio de fin de trama (Frame Tail)
+    UART1_Write(0xFF);  
     UART1_Write(0xFC);  
     UART1_Write(0xFF);  
-    UART1_Write(0xFF);  // Fin de la instrucción
+    UART1_Write(0xFF);  
 }
 
-void DACAI_Solicitar_Screen_ID(void) {
-    
-    // 1. Aseguramos que no existan errores de hardware previos en la UART antes de transmitir
+static inline void DACAI_Buzzer(void) 
+{
     Check_UART1_Errors(); 
     
-    // 2. Encabezado de la trama (Frame Header) y grupo de comandos
-    UART1_Write(0xEE);  // byte de inicio
-    UART1_Write(0xB1);  // Grupo de control
+    UART1_Write(0xEE);  
+    UART1_Write(0x61);  
+    UART1_Write(0x0A);  
+    UART1_Write(0xFF);  
+    UART1_Write(0xFC);  
+    UART1_Write(0xFF);  
+    UART1_Write(0xFF);  
+}
+
+static inline void DACAI_Set_Slider_Value(uint16_t screen_id, uint16_t control_id, uint32_t value) 
+{
+    Check_UART1_Errors(); 
     
-    // 3. Código de comando específico: 0x01 (Get Screen ID)
+    UART1_Write(0xEE);  
+    UART1_Write(0xB1);  
+    UART1_Write(0x10);  
+    
+    UART1_Write((uint8_t)(screen_id >> 8));   
+    UART1_Write((uint8_t)(screen_id & 0xFF));  
+    
+    UART1_Write((uint8_t)(control_id >> 8));  
+    UART1_Write((uint8_t)(control_id & 0xFF)); 
+    
+    UART1_Write((uint8_t)(value >> 24)); 
+    UART1_Write((uint8_t)(value >> 16)); 
+    UART1_Write((uint8_t)(value >> 8));  
+    UART1_Write((uint8_t)(value & 0xFF)); 
+    
+    UART1_Write(0xFF);  
+    UART1_Write(0xFC);  
+    UART1_Write(0xFF);  
+    UART1_Write(0xFF);  
+}
+
+static inline void DACAI_Solicitar_Screen_ID(void) {
+    Check_UART1_Errors(); 
+    
+    UART1_Write(0xEE);  
+    UART1_Write(0xB1);  
     UART1_Write(0x01);  
     
-    // 4. Cierre reglamentario y obligatorio de la trama Dacai (Frame Tail)
     UART1_Write(0xFF);  
     UART1_Write(0xFC);   
     UART1_Write(0xFF);   
     UART1_Write(0xFF);  
 }
 
-void DACAI_Set_Text(uint16_t screenID, uint16_t controlID, const char* texto) 
+static inline void DACAI_Set_Text(uint16_t screenID, uint16_t controlID, const char* texto) 
 {
-    
-    // 1. Verificar y limpiar posibles errores previos en la UART antes de transmitir
     Check_UART1_Errors(); 
     
-    // 2. Encabezado de trama y comando Set Text
-    UART1_Write(0xEE);  // Inicio de trama
-    UART1_Write(0xB1);  // Comando de control
-    UART1_Write(0x10);  // Subcomando: Set Text
+    UART1_Write(0xEE);  
+    UART1_Write(0xB1);  
+    UART1_Write(0x10);  
     
-    // 3. Enviar Screen ID (Byte Alto y luego Byte Bajo)
     UART1_Write((uint8_t)((screenID >> 8) & 0xFF));
     UART1_Write((uint8_t)(screenID & 0xFF));
     
-    // 4. Enviar Control ID (Byte Alto y luego Byte Bajo)
     UART1_Write((uint8_t)((controlID >> 8) & 0xFF));
     UART1_Write((uint8_t)(controlID & 0xFF));
     
-    // 5. Enviar la cadena de caracteres (ASCII) hasta encontrar el fin de cadena '\0'
     while (*texto != '\0') {
         UART1_Write((uint8_t)(*texto));
         texto++;
     }
     
-    // 6. Cierre reglamentario y obligatorio de la trama Dacai
     UART1_Write(0xFF);
     UART1_Write(0xFC);
     UART1_Write(0xFF);
     UART1_Write(0xFF);
 }
+
+static inline void DACAI_Show_Control(uint16_t screenID, uint16_t controlID)
+{
+    Check_UART1_Errors();
+
+    UART1_Write(0xEE);
+    UART1_Write(0xB1);
+    UART1_Write(0x03);
+    UART1_Write(0x00);
+    UART1_Write(screenID);
+    UART1_Write(0x00);
+    UART1_Write(controlID);
+    
+    UART1_Write(0x01);
+    UART1_Write(0xFF);
+    UART1_Write(0xFC);
+    UART1_Write(0xFF);
+    UART1_Write(0xFF);
+}
+
+static inline void DACAI_Hide_Control(uint16_t screenID, uint16_t controlID)
+{
+    Check_UART1_Errors();
+
+    UART1_Write(0xEE);
+    UART1_Write(0xB1);
+    UART1_Write(0x03);
+    UART1_Write(0x00);
+    UART1_Write(screenID);
+    UART1_Write(0x00);
+    UART1_Write(controlID);
+    
+    UART1_Write(0x00);
+    UART1_Write(0xFF);
+    UART1_Write(0xFC);
+    UART1_Write(0xFF);
+    UART1_Write(0xFF);
+}
+
+static inline void Desempaquetar_Respuesta_RTC(volatile uint8_t *buffer) {
+    // 1. Decodificación de los datos BCD provenientes de la pantalla Dacai
+    fecha_hora_actual.anio = BCD_To_Int(buffer[2]);
+    fecha_hora_actual.mes  = BCD_To_Int(buffer[3]);
+    fecha_hora_actual.dia  = BCD_To_Int(buffer[5]);
+    fecha_hora_actual.hora = BCD_To_Int(buffer[6]);
+    fecha_hora_actual.min  = BCD_To_Int(buffer[7]);
+    fecha_hora_actual.sec  = BCD_To_Int(buffer[8]);
+
+    // 2. Registro e impresión en el arranque del equipo
+    if (flag_encendido_registrado == 0) {
+        fecha_hora_encendido = fecha_hora_actual;
+        flag_encendido_registrado = 1; // Evita impresiones repetidas en arranques subsecuentes
+
+        // Imprimir el ticket formal de encendido
+        Imprimir_Registro_Encendido();
+    }
+}
+
+static inline void DACAI_Limpiar_Etiquetas(uint16_t pag_inicio, uint16_t pag_fin) {
+    uint16_t pag;
+    // Arreglo con los IDs de los controles/etiquetas a limpiar
+    const uint16_t etiquetas[] = {35, 41, 42, 43}; 
+    uint8_t num_etiquetas = sizeof(etiquetas) / sizeof(etiquetas[0]);
+    uint8_t i;
+
+    // Recorre todas las páginas indicadas
+    for (pag = pag_inicio; pag <= pag_fin; pag++) {
+        for (i = 0; i < num_etiquetas; i++) {
+            DACAI_Set_Text(pag, etiquetas[i], " ");
+            __delay_ms(5); // Pequeño retardo entre transmisiones UART para no saturar
+        }
+    }
+}
+
+#endif // PANTALLA_H
