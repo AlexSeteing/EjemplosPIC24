@@ -60,6 +60,7 @@ int main(void)
     UART1_Init(9600);    // Inicializa UART a 9600 baudios
     UART2_Init(9600);
     
+    __delay_ms(20);
     
     ADC_Init();             // Inicializa entradas analógicas
     Timer2_Init();
