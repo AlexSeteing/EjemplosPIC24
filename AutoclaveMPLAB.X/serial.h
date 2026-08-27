@@ -39,6 +39,9 @@
 #define BTN_INICIAR          0x0B
 #define BTN_OK_ALARMA        0x24
 
+#define DACAI_BUSY_PIN          PORTAbits.RA2
+#define DACAI_BUSY_TRIS         TRISAbits.TRISA2
+
 // =============================================================================
 // VARIABLES GLOBALES (Con guardas y vinculación adecuada)
 // =============================================================================
@@ -80,6 +83,7 @@ void Printer_Set_Bold(uint8_t estado);
 void Impresora_Imprimir_Lectura(const char* fase);
 // Declaración/Prototipo para evitar la declaración implícita
 void Imprimir_Registro_Encendido(void);
+void DACAI_Wait_Not_Busy(void);
 
 
 // =============================================================================
@@ -293,6 +297,8 @@ void UART1_Pins_Init(void)
     TRISDbits.TRISD2 = 0;   // Pin 49 como TX (RP10)
     TRISDbits.TRISD3 = 1;   // Pin 50 como RX (RP17)
     
+    DACAI_BUSY_TRIS = 1; //Definimos el pin como entrada digital
+    
     __builtin_write_OSCCONL(OSCCON & 0xBF); // Desbloqueo PPS
     RPOR5bits.RP10R = 3;    // Asigna U1TX a RP10
     RPINR18bits.U1RXR = 17; // Asigna U1RX a RP17
@@ -369,6 +375,18 @@ void UART1_Flush(void)
         U1STAbits.OERR = 0;
     }
 }
+
+void DACAI_Wait_Not_Busy(void) 
+{
+    uint16_t timeout = 50000; // Límite de seguridad anti-bloqueo (~10-15 ms a 16 MIPS)
+    
+    // Mientras la pantalla esté ocupada (BUSY = 1) y no se haya agotado el contador
+    while (DACAI_BUSY_PIN == 1 && timeout > 0) 
+    {
+        timeout--;
+    }
+}
+
 
 // Al final de tu archivo serial.c:
 

@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 
+
+
 typedef enum {
     ESTADO_REPOSO = 0,
     ESTADO_PREVACIO,
@@ -70,5 +72,6 @@ void Seleccionar_Programa(TipoPrograma_t prog);
 void Procesar_Maquina_Estados(void);
 void Ejecutar_Fase_Manual(EstadoManual_t nueva_fase);
 void Procesar_Boton_Manual(uint8_t control_id);
+void UART2_Write_Text(const char* text);
 
 #endif // CICLOS_H

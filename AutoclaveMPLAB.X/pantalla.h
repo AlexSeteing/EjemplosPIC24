@@ -4,9 +4,9 @@
 #include <stdint.h>
 #include "xc.h"
 
-#ifndef FCY
-#define FCY 16000000UL 
-#endif
+//#ifndef FCY
+//#define FCY 16000000UL 
+//#endif
 
 #include <stdio.h>
 #include <libpic30.h>
@@ -35,6 +35,7 @@ extern volatile uint8_t flag_encendido_registrado;
 // Prototipos necesarios declarados en otros módulos (.c / .h)
 void Check_UART1_Errors(void);
 void UART1_Write(char TxByte);
+void Imprimir_Registro_Encendido(void);
 
 // ==========================================
 // FUNCIONES INLINE PARA PANTALLA DACAI
@@ -59,6 +60,7 @@ static inline void DACAI_Request_RTC(void) {
 
 static inline void DACAI_Show_Screen(uint16_t screen_id) 
 {
+    DACAI_Wait_Not_Busy();
     Check_UART1_Errors(); 
     
     UART1_Write(0xEE);  
@@ -76,6 +78,7 @@ static inline void DACAI_Show_Screen(uint16_t screen_id)
 
 static inline void DACAI_Buzzer(void) 
 {
+    DACAI_Wait_Not_Busy();
     Check_UART1_Errors(); 
     
     UART1_Write(0xEE);  
@@ -89,6 +92,7 @@ static inline void DACAI_Buzzer(void)
 
 static inline void DACAI_Set_Slider_Value(uint16_t screen_id, uint16_t control_id, uint32_t value) 
 {
+    DACAI_Wait_Not_Busy();
     Check_UART1_Errors(); 
     
     UART1_Write(0xEE);  
@@ -113,6 +117,7 @@ static inline void DACAI_Set_Slider_Value(uint16_t screen_id, uint16_t control_i
 }
 
 static inline void DACAI_Solicitar_Screen_ID(void) {
+    DACAI_Wait_Not_Busy();
     Check_UART1_Errors(); 
     
     UART1_Write(0xEE);  
@@ -127,6 +132,7 @@ static inline void DACAI_Solicitar_Screen_ID(void) {
 
 static inline void DACAI_Set_Text(uint16_t screenID, uint16_t controlID, const char* texto) 
 {
+    DACAI_Wait_Not_Busy();
     Check_UART1_Errors(); 
     
     UART1_Write(0xEE);  
@@ -152,6 +158,7 @@ static inline void DACAI_Set_Text(uint16_t screenID, uint16_t controlID, const c
 
 static inline void DACAI_Show_Control(uint16_t screenID, uint16_t controlID)
 {
+    DACAI_Wait_Not_Busy();
     Check_UART1_Errors();
 
     UART1_Write(0xEE);
@@ -171,6 +178,7 @@ static inline void DACAI_Show_Control(uint16_t screenID, uint16_t controlID)
 
 static inline void DACAI_Hide_Control(uint16_t screenID, uint16_t controlID)
 {
+    DACAI_Wait_Not_Busy();
     Check_UART1_Errors();
 
     UART1_Write(0xEE);
@@ -221,6 +229,44 @@ static inline void DACAI_Limpiar_Etiquetas(uint16_t pag_inicio, uint16_t pag_fin
             __delay_ms(5); // Pequeño retardo entre transmisiones UART para no saturar
         }
     }
+}
+
+static inline void DACAI_Set_Button_Enable(uint16_t screen_id, uint16_t control_id, uint8_t estado) 
+{
+    // Espera si el pin BUSY está en alto (RA2) antes de transmitir
+    DACAI_Wait_Not_Busy();
+    Check_UART1_Errors();
+
+    UART1_Write(0xEE);
+    UART1_Write(0xB1);
+    UART1_Write(0x04); // Comando Enable / Disable Control
+
+    // Screen ID (16 bits)
+    UART1_Write((uint8_t)(screen_id >> 8));
+    UART1_Write((uint8_t)(screen_id & 0xFF));
+
+    // Control ID (16 bits)
+    UART1_Write((uint8_t)(control_id >> 8));
+    UART1_Write((uint8_t)(control_id & 0xFF));
+
+    // Estado: 0x00 = Deshabilitar / 0x01 = Habilitar
+    UART1_Write(estado ? 0x01 : 0x00);
+
+    // Fin de trama reglamentario
+    UART1_Write(0xFF);
+    UART1_Write(0xFC);
+    UART1_Write(0xFF);
+    UART1_Write(0xFF);
+}
+
+// Desactiva el botón (Bloquea el touch)
+static inline void DACAI_Disable_Button(uint16_t screen_id, uint16_t control_id) {
+    DACAI_Set_Button_Enable(screen_id, control_id, 0);
+}
+
+// Activa el botón (Permite el touch)
+static inline void DACAI_Enable_Button(uint16_t screen_id, uint16_t control_id) {
+    DACAI_Set_Button_Enable(screen_id, control_id, 1);
 }
 
 #endif // PANTALLA_H

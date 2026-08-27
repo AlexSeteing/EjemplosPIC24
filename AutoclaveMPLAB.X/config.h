@@ -4,11 +4,12 @@
 // Configuración serial y recepción dinámica por interrupción para PIC24FJ128GA310
 #include "xc.h"
 #include <stdint.h>
-#include "pantalla.h"
+
 
 #define FOSC 32000000UL
 #define FCY (FOSC / 2)           // FCY = 16,000,000 Hz
 
+#include "pantalla.h"
 #include <libpic30.h>
 
 // DECLARACIONES EXTERN (Sin definición directa en el .h)

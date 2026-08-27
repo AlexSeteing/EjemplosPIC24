@@ -139,7 +139,7 @@ void Leer_Sensores(void)
     // 3. Conversión de ingeniería (Mantiene el rango real positivo y negativo)
     sensorCamara      = (int16_t)(((int32_t)filtrado_presCamara * 321) / 10000 - 54);
     sensorCamisa      = (int16_t)(((int32_t)filtrado_presCamisa * 321) / 10000 - 54);
-    sensorTemperatura = (int16_t)((((int32_t)filtrado_tempCamara * 330) - 204750) / 4095);
+    sensorTemperatura = (uint16_t)(((uint32_t)filtrado_tempCamara * 3300) / 4095);
     sensorExtra       = filtrado_sensorExtra; 
 }
 

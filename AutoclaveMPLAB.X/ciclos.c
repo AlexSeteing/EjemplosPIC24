@@ -89,6 +89,13 @@ void Procesar_Maquina_Estados(void)
         static uint8_t estaba_despresurizando = 0;
 
         case ESTADO_REPOSO:
+            DACAI_Enable_Button(pagina_actual, 3);
+            DACAI_Enable_Button(pagina_actual, 4);
+            DACAI_Enable_Button(pagina_actual, 11);
+            DACAI_Enable_Button(pagina_actual, 36);
+            
+            BUZZER = 0;
+            
             // -----------------------------------------------------------------
             // 1. EVALUACIÓN DE SEGURIDAD
             // -----------------------------------------------------------------
@@ -160,6 +167,13 @@ void Procesar_Maquina_Estados(void)
             break;
 
         case ESTADO_PREVACIO:
+            //Desactivar botones
+            DACAI_Disable_Button(pagina_actual, 4);
+            DACAI_Disable_Button(pagina_actual, 3);
+            DACAI_Disable_Button(pagina_actual, 11);
+            DACAI_Disable_Button(pagina_actual, 36);
+            
+            
             DACAI_Set_Text(pagina_actual, 35, "Prevacio");
 
             // --- REGLA DE SEGURIDAD / OMITIR SI ES 0 PREVACÍOS (ej. LÍQUIDOS) ---
@@ -426,6 +440,7 @@ void Procesar_Maquina_Estados(void)
             break;
 
         case ESTADO_FIN_CICLO:
+            DACAI_Enable_Button(pagina_actual, 36);
             // --- 1. NOTIFICACIÓN INICIAL EN PANTALLA E IMPRESIÓN DEL TICKET FINAL ---
             if (autoclave.flag_fin_notificado == 0) 
             {
@@ -490,6 +505,10 @@ void Procesar_Maquina_Estados(void)
 
             // Si tienes un zumbador/buzzer, lo activas aquí
             // BUZZER = 1; 
+            DACAI_Enable_Button(pagina_actual, 3);
+            DACAI_Enable_Button(pagina_actual, 4);
+            DACAI_Enable_Button(pagina_actual, 1);
+            DACAI_Enable_Button(pagina_actual, 36);
 
             break;
             
