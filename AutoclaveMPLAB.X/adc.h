@@ -139,8 +139,8 @@ void Leer_Sensores(void)
     // 3. Conversión de ingeniería (Mantiene el rango real positivo y negativo)
     sensorCamara      = (int16_t)(((int32_t)filtrado_presCamara * 321) / 10000 - 54);
     sensorCamisa      = (int16_t)(((int32_t)filtrado_presCamisa * 321) / 10000 - 54);
-    sensorTemperatura = (uint16_t)(((uint32_t)filtrado_tempCamara * 3300) / 4095);
-    sensorExtra       = filtrado_sensorExtra; 
+    uint16_t v_mV = (uint16_t)(((uint32_t)filtrado_sensorExtra * 3300) / 4095);
+    sensorTemperatura = (v_mV <= 586) ? 0 : (uint16_t)(((uint32_t)(v_mV - 586) * 1000) / 1585);
 }
 
 void Controlar_Presion_Camisa(void) 
@@ -149,7 +149,8 @@ void Controlar_Presion_Camisa(void)
 
     // --- 1. SEGURIDAD: NIVEL DE AGUA ---
     if (NIVEL_BAJO == 0) {
-        RESISTENCIAS = 0; 
+        RESISTENCIAS_LED = 0; 
+        RESISTENCIAS = 0;
         DACAI_Set_Text(pagina_actual, 42, " ");
         sensorCamisaOK = 0;
         listo_mostrado = 0;
@@ -161,7 +162,7 @@ void Controlar_Presion_Camisa(void)
     uint16_t umbral_encendido;      // Dónde vuelve a encender la resistencia
     uint16_t umbral_apagado;        // Dónde apaga la resistencia
 
-    if (autoclave.parametros_activos.temp_objetivo >= 132) 
+    if (autoclave.parametros_activos.temp_objetivo >= 1320) 
     {
         // Ciclo 132°C
         presion_minima_inicio = 32; // Exige 32 PSI exactos para habilitar
@@ -187,7 +188,8 @@ void Controlar_Presion_Camisa(void)
     // A. Llegó o superó la meta superior (ej. 26 PSI o 34 PSI)
     if (sensorCamisa >= umbral_apagado) 
     {
-        RESISTENCIAS = 0; 
+        RESISTENCIAS_LED = 0; 
+        RESISTENCIAS = 0;
         sensorCamisaOK = 1;
 
         if (listo_mostrado == 0) {
@@ -201,7 +203,8 @@ void Controlar_Presion_Camisa(void)
     // B. Cae por debajo o igual a la presión mínima requerida (ej. <= 24 PSI)
     else if (sensorCamisa <= umbral_encendido) 
     {
-        RESISTENCIAS = 1; 
+        RESISTENCIAS_LED = 1; 
+        RESISTENCIAS = 1;
 
         if (sensorCamisa < presion_minima_inicio) {
             sensorCamisaOK = 0; // Aún no llega a 24 PSI

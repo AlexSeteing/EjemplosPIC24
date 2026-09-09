@@ -60,7 +60,7 @@ static inline void DACAI_Request_RTC(void) {
 
 static inline void DACAI_Show_Screen(uint16_t screen_id) 
 {
-    DACAI_Wait_Not_Busy();
+    //DACAI_Wait_Not_Busy();
     Check_UART1_Errors(); 
     
     UART1_Write(0xEE);  
@@ -78,7 +78,7 @@ static inline void DACAI_Show_Screen(uint16_t screen_id)
 
 static inline void DACAI_Buzzer(void) 
 {
-    DACAI_Wait_Not_Busy();
+    //DACAI_Wait_Not_Busy();
     Check_UART1_Errors(); 
     
     UART1_Write(0xEE);  
@@ -92,7 +92,7 @@ static inline void DACAI_Buzzer(void)
 
 static inline void DACAI_Set_Slider_Value(uint16_t screen_id, uint16_t control_id, uint32_t value) 
 {
-    DACAI_Wait_Not_Busy();
+    //DACAI_Wait_Not_Busy();
     Check_UART1_Errors(); 
     
     UART1_Write(0xEE);  
@@ -117,7 +117,7 @@ static inline void DACAI_Set_Slider_Value(uint16_t screen_id, uint16_t control_i
 }
 
 static inline void DACAI_Solicitar_Screen_ID(void) {
-    DACAI_Wait_Not_Busy();
+    //DACAI_Wait_Not_Busy();
     Check_UART1_Errors(); 
     
     UART1_Write(0xEE);  
@@ -132,7 +132,7 @@ static inline void DACAI_Solicitar_Screen_ID(void) {
 
 static inline void DACAI_Set_Text(uint16_t screenID, uint16_t controlID, const char* texto) 
 {
-    DACAI_Wait_Not_Busy();
+    //DACAI_Wait_Not_Busy();
     Check_UART1_Errors(); 
     
     UART1_Write(0xEE);  
@@ -158,7 +158,7 @@ static inline void DACAI_Set_Text(uint16_t screenID, uint16_t controlID, const c
 
 static inline void DACAI_Show_Control(uint16_t screenID, uint16_t controlID)
 {
-    DACAI_Wait_Not_Busy();
+    //DACAI_Wait_Not_Busy();
     Check_UART1_Errors();
 
     UART1_Write(0xEE);
@@ -178,7 +178,7 @@ static inline void DACAI_Show_Control(uint16_t screenID, uint16_t controlID)
 
 static inline void DACAI_Hide_Control(uint16_t screenID, uint16_t controlID)
 {
-    DACAI_Wait_Not_Busy();
+    //DACAI_Wait_Not_Busy();
     Check_UART1_Errors();
 
     UART1_Write(0xEE);
@@ -234,7 +234,6 @@ static inline void DACAI_Limpiar_Etiquetas(uint16_t pag_inicio, uint16_t pag_fin
 static inline void DACAI_Set_Button_Enable(uint16_t screen_id, uint16_t control_id, uint8_t estado) 
 {
     // Espera si el pin BUSY está en alto (RA2) antes de transmitir
-    DACAI_Wait_Not_Busy();
     Check_UART1_Errors();
 
     UART1_Write(0xEE);

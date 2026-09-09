@@ -57,7 +57,7 @@ int main(void)
     PINES_Init();
     
     UART1_Pins_Init();   // Mapea pines RP10 y RP17
-    UART1_Init(9600);    // Inicializa UART a 9600 baudios
+    UART1_Init(115200);    // Inicializa UART a 9600 baudios
     UART2_Init(9600);
     
     __delay_ms(20);
@@ -91,7 +91,8 @@ int main(void)
     Precargar_Filtros_Iniciales();
     
     while(1) 
-    {
+    {   
+        
         Check_UART1_Errors(); // Limpieza constante de desbordamientos
         
         // Si la interrupción detectó el cierre de trama (FF FC FF FF)
@@ -115,31 +116,28 @@ int main(void)
 
             sprintf(buffer_texto_Camara, "%d", sensorCamara);
             sprintf(buffer_texto_Camisa, "%d", sensorCamisa);
-            sprintf(buffer_texto_Temperatura, "%d   ", sensorTemperatura);
+            sprintf(buffer_texto_Temperatura, "%u.%u   ", sensorTemperatura / 10, sensorTemperatura % 10);
             //sprintf(buffer_texto_Auxiliar, "%u  ", pagina_actual);
             sprintf(buffer_texto_Auxiliar, "%u  ", fecha_hora_actual.anio);
-            /*OLED_Clear_To_Black(); 
-
-            OLED_Set_Cursor(1, 10);
-            OLED_Print_String("Presion Camara");
-            OLED_Set_Cursor(2, 10);
+            
+            /*OLED_Set_Cursor(2, 10);
             OLED_Print_String(buffer_texto_Camara);
             OLED_Set_Cursor(3,10);
             OLED_Print_String("Presion Camisa");
             OLED_Set_Cursor(4, 10);
             OLED_Print_String(buffer_texto_Camisa);
             OLED_Set_Cursor(5,10);
-            OLED_Print_String("Anio");
+            OLED_Print_String("Temperatura");
             //OLED_Print_String("Pagina");
             OLED_Set_Cursor(6, 10);
             //OLED_Print_String(buffer_texto_Temperatura);
             
             
             //OLED_Set_Cursor(6, 10);
-            OLED_Print_String(buffer_texto_Auxiliar);
+            OLED_Print_String(buffer_texto_Temperatura);
             //DACAI_Buzzer(); 
-            
             */
+            
             DACAI_Solicitar_Screen_ID();
             
             if (PUERTA == 0) 
@@ -165,6 +163,12 @@ int main(void)
         
         if (bandera1seg == 1) 
         {
+            
+            OLED_Clear_To_Black(); 
+
+            OLED_Set_Cursor(1, 10);
+            OLED_Print_String("Autoclave");
+            //PRUEBA = !PRUEBA;
             DACAI_Request_RTC();
             bandera1seg = 0; // Limpia la bandera
             // Control de descuento para ESTADO_ESTERILIZACION

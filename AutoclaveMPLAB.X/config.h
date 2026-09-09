@@ -30,19 +30,28 @@ extern volatile uint8_t estadoLlenado;
 extern volatile uint8_t sensorNivelAguaOK;
 extern volatile uint8_t sensorCamisaOK;
 
-#define BOMBA_AGUA          LATGbits.LATG15
-#define RESISTENCIAS        LATEbits.LATE5
-#define VAL_ENTRADA         LATEbits.LATE7
-#define VAL_ESC_RAPIDO      LATCbits.LATC1
-#define VAL_ESC_LENTO       LATCbits.LATC2
-#define VAL_SECADO          LATCbits.LATC3
-#define VAL_ENTRADA_AIRE    LATCbits.LATC4
+#define BOMBA_AGUA_LED      LATGbits.LATG15
+#define BOMBA_AGUA          LATDbits.LATD13
+#define RESISTENCIAS_LED    LATEbits.LATE5
+#define RESISTENCIAS        LATDbits.LATD12
+#define VAL_ENTRADA_LED     LATEbits.LATE7
+#define VAL_ENTRADA         LATDbits.LATD1
+#define VAL_ESC_RAPIDO_LED  LATCbits.LATC1
+#define VAL_ESC_RAPIDO      LATDbits.LATD0
+#define VAL_ESC_LENTO_LED   LATCbits.LATC2 //Falta
+#define VAL_SECADO_LED      LATCbits.LATC3
+#define VAL_SECADO          LATEbits.LATE4
+#define VAL_ENTRADA_AIRE_LED LATCbits.LATC4 //Falta
+#define VAL_ENTRADA_AIRE    LATAbits.LATA6
 #define BUZZER              LATAbits.LATA7
 
 #define PUERTA              PORTGbits.RG7 // Switch RG7 controla LED RG15
-#define NIVEL_ALTO          PORTGbits.RG8 // Switch RG8 controla LED RE5
-#define NIVEL_BAJO          PORTGbits.RG9 // Switch RG9 controla LED RE7
+//#define NIVEL_ALTO          PORTGbits.RG8 // Switch RG8 controla LED RE5
+#define NIVEL_ALTO          PORTDbits.RD3
+//#define NIVEL_BAJO          PORTGbits.RG9 // Switch RG9 controla LED RE7
+#define NIVEL_BAJO          PORTDbits.RD2
 
+#define PRUEBA              LATEbits.LATE6
 // ==========================================
 // CONTROL IDs PANTALLA MANUAL (VisualTFT)
 // ==========================================

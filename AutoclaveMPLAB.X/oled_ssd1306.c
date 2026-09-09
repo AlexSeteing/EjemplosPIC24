@@ -211,7 +211,7 @@ void OLED_Config(void)
     
     // Fila superior (Página 1), Iniciando en columna 10
     OLED_Set_Cursor(1, 10);
-    OLED_Print_String("Prueba Autoclave");
+    OLED_Print_String("Autoclave");
 
     // Fila inferior (Página 5), Iniciando en columna 30
     OLED_Set_Cursor(5, 30);

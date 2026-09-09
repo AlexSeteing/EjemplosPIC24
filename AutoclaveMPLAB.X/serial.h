@@ -197,20 +197,7 @@ void Procesar_Comando_Dacai(void)
                         DACAI_Buzzer(); // Alerta sonora de error
                         DACAI_Set_Text(pagina_actual, 35, "PUERTA ABIERTA");
                     }
-                    /*else if (sensorCamisaOK == 0) 
-                    {
-                        // La camisa aún no alcanza la presión/temperatura mínima de inicio
-                        DACAI_Buzzer();
-                        DACAI_Set_Text(pagina_actual, 35, "ESPERANDO CAMISA");
-                    }
-                    else 
-                    {
-                        // Si todo está OK, iniciamos la secuencia
-                        autoclave.estado_actual = ESTADO_REPOSO;
-                        DACAI_Set_Text(pagina_actual, 35, "INICIANDO CICLO");
-                        __delay_ms(500);
-                    }
-                    break;*/
+                    
                     
                     
                     // El botón Iniciar hace cosas distintas dependiendo de la página visible
@@ -294,8 +281,8 @@ void System_Clock_Init(void)
 
 void UART1_Pins_Init(void) 
 {
-    TRISDbits.TRISD2 = 0;   // Pin 49 como TX (RP10)
-    TRISDbits.TRISD3 = 1;   // Pin 50 como RX (RP17)
+    //TRISDbits.TRISD2 = 0;   // Pin 49 como TX (RP10)
+    //TRISDbits.TRISD3 = 1;   // Pin 50 como RX (RP17)
     
     DACAI_BUSY_TRIS = 1; //Definimos el pin como entrada digital
     

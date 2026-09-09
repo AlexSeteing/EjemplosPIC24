@@ -18,7 +18,7 @@ ControlAutoclave_t autoclave = {
     .estado_actual = ESTADO_REPOSO,
     .programa_seleccionado = PROGRAMA_ROPA,
     // Copiar los valores del elemento TABLA_PROGRAMAS correspondiente a ROPA:
-    .parametros_activos = {"ROPA", 3, 121, 24, 1200, 900}, // Ajusta tiempos/prevacíos según tu tabla
+    .parametros_activos = {"ROPA", 3, 1210, 24, 1200, 900}, // Ajusta tiempos/prevacíos según tu tabla
     .contador_prevacios = 0,
     .temporizador_etapa_seg = 0,
     .flag_iniciar = 0,
@@ -27,19 +27,19 @@ ControlAutoclave_t autoclave = {
 
 const ParametrosCiclo_t TABLA_PROGRAMAS[5] = {
     // [0] PROGRAMA_ROPA
-    { .temp_objetivo = 121, .num_prevacios = 2, .tiempo_esterilizado = 30, .tiempo_secado = 20 },
+    { .temp_objetivo = 1210, .num_prevacios = 2, .tiempo_esterilizado = 1800, .tiempo_secado = 1800 },
     
     // [1] PROGRAMA_INSTRUMENTAL
-    { .temp_objetivo = 132, .num_prevacios = 2, .tiempo_esterilizado = 300, .tiempo_secado = 600 },
+    { .temp_objetivo = 1320, .num_prevacios = 2, .tiempo_esterilizado = 300, .tiempo_secado = 600 },
     
     // [2] PROGRAMA_BOWIE
-    { .temp_objetivo = 132, .num_prevacios = 3, .tiempo_esterilizado = 210, .tiempo_secado = 300 },
+    { .temp_objetivo = 1320, .num_prevacios = 3, .tiempo_esterilizado = 210, .tiempo_secado = 300 },
     
     // [3] PROGRAMA_LIQUIDOS
-    { .temp_objetivo = 121, .num_prevacios = 0, .tiempo_esterilizado = 1200, .tiempo_secado = 0 },
+    { .temp_objetivo = 1210, .num_prevacios = 0, .tiempo_esterilizado = 1200, .tiempo_secado = 0 },
     
     // [4] PROGRAMA_ESPECIAL
-    { .temp_objetivo = 121, .num_prevacios = 2, .tiempo_esterilizado = 900, .tiempo_secado = 600 }
+    { .temp_objetivo = 1210, .num_prevacios = 2, .tiempo_esterilizado = 900, .tiempo_secado = 600 }
 };
 
 void Seleccionar_Programa(TipoPrograma_t prog) {
@@ -66,10 +66,15 @@ void Procesar_Maquina_Estados(void)
         autoclave.flag_cancelar = 0;
 
         // 1. Apagar actuadores de proceso y abrir escape
+        RESISTENCIAS_LED = 0;
         RESISTENCIAS = 0;
+        VAL_ENTRADA_LED = 0;
         VAL_ENTRADA = 0;
-        VAL_ESC_RAPIDO = 1;      // Abre escape para aliviar presión retenida
+        VAL_ESC_RAPIDO_LED = 1;      // Abre escape para aliviar presión retenida
+        VAL_ESC_RAPIDO = 1;
+        VAL_SECADO_LED = 0;
         VAL_SECADO = 0;
+        VAL_ENTRADA_AIRE_LED = 0;
         VAL_ENTRADA_AIRE = 0;
 
         // 2. Cambiar estado
@@ -95,7 +100,7 @@ void Procesar_Maquina_Estados(void)
             DACAI_Enable_Button(pagina_actual, 36);
             
             BUZZER = 0;
-            
+            DACAI_Set_Text(pagina_actual, 43,  " ");
             // -----------------------------------------------------------------
             // 1. EVALUACIÓN DE SEGURIDAD
             // -----------------------------------------------------------------
@@ -113,7 +118,8 @@ void Procesar_Maquina_Estados(void)
             }
             
             if (PUERTA == 1 && sensorCamara > 3) {
-                VAL_ESC_RAPIDO = 1; // Abrir válvula
+                VAL_ESC_RAPIDO_LED = 1; // Abrir válvula
+                VAL_ESC_RAPIDO = 1;
 
                 // Si no estaba despresurizando, envía el mensaje UNA SOLA VEZ
                 if (estaba_despresurizando == 0) {
@@ -122,10 +128,14 @@ void Procesar_Maquina_Estados(void)
                 }
             } 
             else {
-                VAL_ESC_RAPIDO = 0; // Cierra la válvula de escape
+                VAL_ESC_RAPIDO_LED = 0; // Cierra la válvula de escape
+                VAL_ESC_RAPIDO = 0;
 
+                VAL_ENTRADA_LED = 0;
                 VAL_ENTRADA = 0;
+                VAL_SECADO_LED = 0;
                 VAL_SECADO = 0;
+                VAL_ENTRADA_AIRE_LED = 0;
                 VAL_ENTRADA_AIRE = 0;
 
                 // -------------------------------------------------------------
@@ -162,6 +172,8 @@ void Procesar_Maquina_Estados(void)
 
                     estaba_despresurizando = 0; // Resetea la bandera para el inicio de ciclo
                     DACAI_Set_Text(pagina_actual, 35, "INICIANDO CICLO");
+                    //Aqui se agrega
+                    Imprimir_Encabezado_Ticket();
                 }
             }
             break;
@@ -178,8 +190,11 @@ void Procesar_Maquina_Estados(void)
 
             // --- REGLA DE SEGURIDAD / OMITIR SI ES 0 PREVACÍOS (ej. LÍQUIDOS) ---
             if (autoclave.parametros_activos.num_prevacios == 0) {
+                VAL_ESC_RAPIDO_LED = 0;
                 VAL_ESC_RAPIDO = 0;
+                VAL_SECADO_LED = 0;
                 VAL_SECADO = 0;
+                VAL_ENTRADA_LED = 0;
                 VAL_ENTRADA = 0;
                 autoclave.subestado_prevacio = 0;
 
@@ -192,24 +207,30 @@ void Procesar_Maquina_Estados(void)
             // --- FASE 1: REALIZAR VACÍO ---
             if (autoclave.subestado_prevacio == 0) 
             {
-                VAL_SECADO = 1;   // Abrir válvula de vacío / bomba
-                VAL_ENTRADA = 0;  // Mantener vapor cerrado
+                VAL_SECADO_LED = 1;   // Abrir válvula de vacío / bomba
+                VAL_SECADO = 1;
+                VAL_ENTRADA_LED = 0;  // Mantener vapor cerrado
+                VAL_ENTRADA = 0;
 
                 // Evaluamos si alcanzó la presión de vacío objetivo
                 if (sensorCamara <= -3) { // Reducir aquí al valor objetivo (ej. -8 PSI o 3 PSI de prueba)
-                    VAL_SECADO = 0;                     // Cerramos vacío
+                    VAL_SECADO_LED = 0;                     // Cerramos vacío
+                    VAL_SECADO = 0;
                     autoclave.subestado_prevacio = 1;   // Pasamos a fase de presurización
                 }
             }
             // --- FASE 2: PRESURIZACIÓN DE PREVACÍO (ROMPIMIENTO CON VAPOR A 15 PSI) ---
             else if (autoclave.subestado_prevacio == 1) 
             {
-                VAL_SECADO = 0;   // Vacío cerrado
-                VAL_ENTRADA = 1;  // Inyectar vapor a la cámara
+                VAL_SECADO_LED = 0;   // Vacío cerrado
+                VAL_SECADO = 0;
+                VAL_ENTRADA_LED = 1;  // Inyectar vapor a la cámara
+                VAL_ENTRADA = 1;
 
                 // Evaluamos si subió a los 15 PSI del pulso de prevacío
                 if (sensorCamara >= 15) {
-                    VAL_ENTRADA = 0; // Cerramos entrada de vapor
+                    VAL_ENTRADA_LED = 0; // Cerramos entrada de vapor
+                    VAL_ENTRADA = 0;
 
                     // ¡Completamos 1 pulso de prevacío!
                     autoclave.contador_prevacios++; 
@@ -238,7 +259,9 @@ void Procesar_Maquina_Estados(void)
             DACAI_Set_Text(pagina_actual, 35, "Calentamiento"); 
 
             // En calentamiento, abrimos vapor continuo hasta llegar a la temperatura/presión de esterilización
+            VAL_ENTRADA_LED = 1;
             VAL_ENTRADA = 1;
+            VAL_SECADO_LED = 0;
             VAL_SECADO = 0;
 
             // Evaluamos si la CÁMARA llegó al setpoint del ciclo activo
@@ -261,6 +284,7 @@ void Procesar_Maquina_Estados(void)
         case ESTADO_ESTERILIZACION:
             // 1. Mantenemos la válvula de inyección abierta desde la camisa
             DACAI_Set_Text(pagina_actual, 35, "Esterilizacion");
+            VAL_ENTRADA_LED = 1;
             VAL_ENTRADA = 1;
 
             // 2. Formateamos y mostramos el tiempo restante en minutos/segundos en la pantalla Dacai
@@ -293,7 +317,8 @@ void Procesar_Maquina_Estados(void)
             // 3. Verificación de finalización de la etapa
             if (autoclave.temporizador_etapa_seg == 0) 
             {
-                VAL_ENTRADA = 0; // Cerramos el paso de vapor a la cámara
+                VAL_ENTRADA_LED = 0; // Cerramos el paso de vapor a la cámara
+                VAL_ENTRADA = 0;
 
                 // Impresión del final de la esterilización
                 Impresora_Imprimir_Lectura("FIN ESTERILIZACION");
@@ -308,9 +333,11 @@ void Procesar_Maquina_Estados(void)
 
         case ESTADO_DESPRESURIZACION:
             DACAI_Set_Text(pagina_actual, 35, "Despresurizacion");
+            VAL_ESC_RAPIDO_LED = 1;
             VAL_ESC_RAPIDO = 1;
 
             if (sensorCamara <= 1) { // Cerca de 1.00 PSI / Atmosférica
+                VAL_ESC_RAPIDO_LED = 0;
                 VAL_ESC_RAPIDO = 0;
 
                 // Impresión de fin de despresurización
@@ -335,7 +362,9 @@ void Procesar_Maquina_Estados(void)
             // --- 1. CASO ESPECIAL: CICLO SIN SECADO (ej. LÍQUIDOS con tiempo = 0) ---
             if (autoclave.parametros_activos.tiempo_secado == 0) 
             {
+                VAL_ESC_RAPIDO_LED = 0;
                 VAL_ESC_RAPIDO = 0;
+                VAL_SECADO_LED = 0;
                 VAL_SECADO = 0;
                 autoclave.flag_vacio_alcanzado = 0; // Limpiar bandera de seguridad
 
@@ -346,7 +375,9 @@ void Procesar_Maquina_Estados(void)
             }
 
             // --- 2. ACTIVACIÓN DE VÁLVULAS DE SECADO / VACÍO ---
+            VAL_ESC_RAPIDO_LED = 1;
             VAL_ESC_RAPIDO = 1;
+            VAL_SECADO_LED = 1;
             VAL_SECADO = 1;
 
             // Banderas estáticas para evitar impresiones repetitivas en bucle
@@ -409,7 +440,9 @@ void Procesar_Maquina_Estados(void)
             if (autoclave.temporizador_etapa_seg == 0 && autoclave.flag_vacio_alcanzado == 1) 
             {
                 // Apagamos válvulas de secado y escape rápido
+                VAL_ESC_RAPIDO_LED = 0;
                 VAL_ESC_RAPIDO = 0;
+                VAL_SECADO_LED = 0;
                 VAL_SECADO = 0;
 
                 // Limpiamos banderas de estado e impresión
@@ -427,12 +460,14 @@ void Procesar_Maquina_Estados(void)
         case ESTADO_IGUALACION_AIRE:
             DACAI_Set_Text(pagina_actual, 35, "Entrada aire");
             // Abrir la válvula de admisión/entrada de aire ambiental (con filtro)
+            VAL_ENTRADA_AIRE_LED = 1;
             VAL_ENTRADA_AIRE = 1;
 
             // Esperar a que la cámara regrese a presión atmosférica segura (0 PSI)
             if (sensorCamara >= 0) 
             {
-                VAL_ENTRADA_AIRE = 0; // Cierra la válvula de aire
+                VAL_ENTRADA_AIRE_LED = 0; // Cierra la válvula de aire
+                VAL_ENTRADA_AIRE = 0;
 
                 // Carga de estado final
                 autoclave.estado_actual = ESTADO_FIN_CICLO;
@@ -459,7 +494,6 @@ void Procesar_Maquina_Estados(void)
             // --- 2. CONMUTACIÓN DEL BUZZER EXTERNO (Cada 1 segundo) ---
             if (bandera1seg == 1) 
             {
-                bandera1seg = 0;   // Consumir la bandera del timer
                 BUZZER = !BUZZER;  // Alterna: 1 seg ON / 1 seg OFF
             }
 
@@ -471,9 +505,13 @@ void Procesar_Maquina_Estados(void)
 
             // Si el operador navega fuera de la página manual, regresamos a reposo y apagamos actuadores
             if (pagina_actual != 6) {
+                VAL_ENTRADA_LED = 0;
                 VAL_ENTRADA = 0;
+                VAL_ESC_RAPIDO_LED = 0;
                 VAL_ESC_RAPIDO = 0;
+                VAL_SECADO_LED = 0;
                 VAL_SECADO = 0;
+                VAL_ENTRADA_AIRE_LED = 0;
                 VAL_ENTRADA_AIRE = 0;
                 autoclave.estado_actual = ESTADO_REPOSO;
             }
@@ -485,18 +523,24 @@ void Procesar_Maquina_Estados(void)
             //sensorCamisaOK = 0;               // Invalida la bandera de presión lista
 
             // 2. SEGURIDAD DE VÁLVULAS (Cerrar inyecciones, abrir escapes si es seguro)
-            VAL_ENTRADA = 0;     // Aísla la camisa de la cámara
-            VAL_SECADO = 0;                    // Apaga bomba o sistema de vacío
-            VAL_ENTRADA_AIRE = 0;              // Cierra entrada de aire
+            VAL_ENTRADA_LED = 0;     // Aísla la camisa de la cámara
+            VAL_ENTRADA = 0;
+            VAL_SECADO_LED = 0;                    // Apaga bomba o sistema de vacío
+            VAL_SECADO = 0;
+            VAL_ENTRADA_AIRE_LED = 0;              // Cierra entrada de aire
+            VAL_ENTRADA_AIRE = 0;
 
             /* NOTA DE SEGURIDAD PARA LA PRESIÓN:
                Si la alarma ocurre a alta presión, la cámara debe despresurizarse 
                lentamente por la válvula de escape rápido/alivio */
             /*if (sensorCamara > 2) {          // Si la cámara tiene más de 2.00 PSI
-                VAL_ESC_RAPIDO = 1;            // Libera vapor de la cámara por seguridad
+                VAL_ESC_RAPIDO_LED = 1;            // Libera vapor de la cámara por seguridad
+             * VAL_ESC_RAPIDO = 1;
             } else {
-                VAL_ESC_RAPIDO = 0;            // Cierra cuando sea segura
-                VAL_ENTRADA_AIRE = 1;
+                VAL_ESC_RAPIDO_LED = 0;            // Cierra cuando sea segura
+             * VAL_ESC_RAPIDO = 0;
+                VAL_ENTRADA_AIRE_LED = 1;
+             * VAL_ENTRADA_AIRE = 1;
             }*/
 
             // 3. INTERFAZ Y AUDITORÍA
@@ -514,10 +558,14 @@ void Procesar_Maquina_Estados(void)
             
             default:
             // 1. Desactivación de emergencia de todos los actuadores de salida
-            VAL_ENTRADA      = 0;
-            VAL_ESC_RAPIDO   = 0;
-            VAL_ESC_LENTO    = 0;
-            VAL_SECADO       = 0;
+            VAL_ENTRADA_LED      = 0;
+            VAL_ENTRADA = 0;
+            VAL_ESC_RAPIDO_LED   = 0;
+            VAL_ESC_RAPIDO = 0;
+            VAL_ESC_LENTO_LED    = 0;
+            VAL_SECADO_LED       = 0;
+            VAL_SECADO = 0;
+            VAL_ENTRADA_AIRE_LED = 0;
             VAL_ENTRADA_AIRE = 0;
             //RESISTENCIAS      = 0;
 
@@ -603,11 +651,15 @@ void Ejecutar_Fase_Manual(EstadoManual_t nueva_fase)
     // ===================================
     // 1. REGLA DE SEGURIDAD (INTERLOCK): APAGADO GENERAL DE ACTUADORES
     // =========================================================================
-    VAL_ENTRADA      = 0;  // Válvula de inyección de vapor a cámara
-    VAL_ESC_RAPIDO   = 0;  // Válvula de despresurización rápida / alivio
-    VAL_ESC_LENTO    = 0;
-    VAL_SECADO       = 0;  // Bomba de vacío / válvula de secado
-    VAL_ENTRADA_AIRE = 0;  // Válvula de admisión de aire ambiental
+    VAL_ENTRADA_LED      = 0;  // Válvula de inyección de vapor a cámara
+    VAL_ENTRADA = 0;
+    VAL_ESC_RAPIDO_LED   = 0;  // Válvula de despresurización rápida / alivio
+    VAL_ESC_RAPIDO = 0;
+    VAL_ESC_LENTO_LED    = 0;
+    VAL_SECADO_LED       = 0;  // Bomba de vacío / válvula de secado
+    VAL_SECADO  = 0;
+    VAL_ENTRADA_AIRE_LED = 0;  // Válvula de admisión de aire ambiental
+    VAL_ENTRADA_AIRE = 0;
 
     // =========================================================================
     // 2. ACTIVACIÓN DE SALIDA SEGÚN LA FASE SELECCIONADA
@@ -621,27 +673,32 @@ void Ejecutar_Fase_Manual(EstadoManual_t nueva_fase)
         case MANUAL_ENTRADA_VAPOR:
             // Validación de seguridad física: no inyectar vapor si la puerta está abierta
             if (PUERTA == 1) { 
-                VAL_ENTRADA = 1; // Inyecta vapor a la cámara desde la camisa
+                VAL_ENTRADA_LED = 1; // Inyecta vapor a la cámara desde la camisa
+                VAL_ENTRADA = 1;
             }
             break;
 
         case MANUAL_ESCAPE_RAPIDO:
-            VAL_ESC_RAPIDO = 1; // Abre despresurización rápida
+            VAL_ESC_RAPIDO_LED = 1; // Abre despresurización rápida
+            VAL_ESC_RAPIDO = 1;
             break;
 
         case MANUAL_ESCAPE_LENTO:
             // Si usas una válvula o relé independiente para escape lento:
-            // VAL_ESC_LENTO = 1; 
+            // VAL_ESC_LENTO_LED = 1; 
             // Si usas pulsos sobre la misma válvula de escape:
-            VAL_ESC_RAPIDO = 1; 
+            VAL_ESC_RAPIDO_LED = 1; 
+            VAL_ESC_RAPIDO = 1;
             break;
 
         case MANUAL_SECADO:
-            VAL_SECADO = 1; // Enciende bomba/sistema de vacío
+            VAL_SECADO_LED = 1; // Enciende bomba/sistema de vacío
+            VAL_SECADO = 1;
             break;
 
         case MANUAL_ENTRADA_AIRE:
-            VAL_ENTRADA_AIRE = 1; // Iguala la presión con aire ambiental
+            VAL_ENTRADA_AIRE_LED = 1; // Iguala la presión con aire ambiental
+            VAL_ENTRADA_AIRE = 1;
             break;
 
         case MANUAL_FIN:
